@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Map with Notes</title>
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+            integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+            crossorigin=""
+        />
+        <script
+            src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""
+        ></script>
+    </head>
+    <body>
+        <a href="/notes">notes</a>
+        <div id="map" style="height: 1900px"></div>
+        <script>
+            var map = L.map("map").setView(
+                [45.5398044346885, 10.22007465362549],
+                100
+            ); // Initial center coordinates
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution:
+                    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            }).addTo(map);
+
+            var marker = null; // Variable to store the clicked marker
+
+            function onMapClick(e) {
+                if (marker) {
+                    map.removeLayer(marker); // Remove existing marker if present
+                }
+                marker = L.marker(e.latlng).addTo(map); // Create a new marker
+
+                // Create a popup element to hold the note
+                var popup = L.popup()
+                    .setContent(
+                        "<input type='text' id='noteInput' placeholder='Enter your note'>"
+                    )
+                    .setLatLng(e.latlng)
+                    .openOn(map);
+
+                // Add a button to submit the note (consider form validation)
+                var submitButton = L.DomUtil.create("button", "submit-button");
+                submitButton.textContent = "Submit Note";
+                submitButton.addEventListener("click", function () {
+                    var note = document.getElementById("noteInput").value;
+                    fetch('/submit_note', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            latitude: e.latlng.lat,
+                            longitude: e.latlng.lng,
+                            note: note
+                        }),
+                    })
+                    .then(response => response.text())
+                    .then(data => {
+                        console.log('Success:', data);
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+                    popup.close();
+                });
+
+                popup.getElement().appendChild(submitButton); // Add submit button to the popup
+            }
+
+            map.on("click", onMapClick);
+
+            // Fetch notes from Flask
+            fetch('/notes')
+                .then(response => response.json())
+                .then(notes => {
+                    // Loop through each note
+                    notes.forEach(note => {
+                        // Create a marker for each note
+                        var noteMarker = L.marker([note.latitude, note.longitude]).addTo(map);
+                        // Add the note text to the marker
+                        noteMarker.bindPopup(note.text);
+                    });
+                });
+        </script>
+    </body>
+</html>
