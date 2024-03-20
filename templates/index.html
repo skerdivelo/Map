@@ -16,6 +16,19 @@
     </head>
     <body>
         <a href="/notes">notes</a>
+        <div
+            id="sidebar"
+            style="
+                position: fixed;
+                right: 0;
+                top: 0;
+                height: 100%;
+                width: 200px;
+                overflow: auto;
+                border-left: 1px solid black;
+            "
+        ></div>
+
         <div id="map" style="height: 1900px"></div>
         <script>
             var map = L.map("map").setView(
@@ -49,24 +62,24 @@
                 submitButton.textContent = "Submit Note";
                 submitButton.addEventListener("click", function () {
                     var note = document.getElementById("noteInput").value;
-                    fetch('/submit_note', {
-                        method: 'POST',
+                    fetch("/submit_note", {
+                        method: "POST",
                         headers: {
-                            'Content-Type': 'application/json',
+                            "Content-Type": "application/json",
                         },
                         body: JSON.stringify({
                             latitude: e.latlng.lat,
                             longitude: e.latlng.lng,
-                            note: note
+                            note: note,
                         }),
                     })
-                    .then(response => response.text())
-                    .then(data => {
-                        console.log('Success:', data);
-                    })
-                    .catch((error) => {
-                        console.error('Error:', error);
-                    });
+                        .then((response) => response.text())
+                        .then((data) => {
+                            console.log("Success:", data);
+                        })
+                        .catch((error) => {
+                            console.error("Error:", error);
+                        });
                     popup.close();
                 });
 
@@ -80,13 +93,36 @@
                 .then(response => response.json())
                 .then(notes => {
                     // Loop through each note
-                    notes.forEach(note => {
+                    notes.forEach((note, index) => {
+                        // Create a unique ID for each note element
+                        var noteId = `note-${index}`;
+
                         // Create a marker for each note
                         var noteMarker = L.marker([note.latitude, note.longitude]).addTo(map);
                         // Add the note text to the marker
                         noteMarker.bindPopup(note.text);
+
+                        // Create the note element with the ID
+                        var noteElement = document.createElement('div');
+                        noteElement.id = noteId;
+                        noteElement.textContent = note.text;
+                        noteElement.style.cursor = 'pointer';
+
+                        // Update click event listener to reference marker based on ID
+                        noteElement.addEventListener('click', function() {
+                            // Find the marker with the corresponding ID (replace 'note-' with your prefix)
+                            var marker = map.findLayer(layer => layer.options.id === `note-${index}`);
+                            if (marker) {
+                                // Move the map to the note's coordinates and open the popup
+                                map.setView([note.latitude, note.longitude], 13);
+                                marker.openPopup();
+                            }
+                        });
+
+                        document.getElementById('sidebar').appendChild(noteElement);
                     });
                 });
+
         </script>
     </body>
 </html>
