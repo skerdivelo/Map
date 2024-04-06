@@ -14,6 +14,42 @@
             crossorigin=""
         ></script>
     </head>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        #sidebar {
+            width: 25%;
+            background-color: #f8f9fa;
+            padding: 20px;
+            box-shadow: 2px 0px 5px 0px rgba(0, 0, 0, 0.1);
+            overflow: auto;
+        }
+
+        #sidebar h1 {
+            font-size: 24px;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        #sidebar .note {
+            background-color: #ffffff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        #map {
+            width: 75%;
+            height: 100vh;
+        }
+    </style>
     <body>
         <a href="/notes">notes</a>
         <div
@@ -29,25 +65,28 @@
             "
         ></div>
 
-        <div id="map" style="height: 1900px"></div>
+        <div id="map"></div>
         <script>
             var map = L.map("map").setView(
                 [45.5398044346885, 10.22007465362549],
-                100
-            ); // Initial center coordinates
+                13
+            ); // Adjusted zoom level
 
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 attribution:
                     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             }).addTo(map);
 
-            var marker = null; // Variable to store the clicked marker
+            var markers = []; // Array to store references to markers
+
+            function addMarkerToMap(latitude, longitude) {
+                var marker = L.marker([latitude, longitude]).addTo(map);
+                markers.push(marker);
+            }
 
             function onMapClick(e) {
-                if (marker) {
-                    map.removeLayer(marker); // Remove existing marker if present
-                }
-                marker = L.marker(e.latlng).addTo(map); // Create a new marker
+                var marker = L.marker(e.latlng).addTo(map); // Create a new marker
+                markers.push(marker); // Store the reference to the marker
 
                 // Create a popup element to hold the note
                 var popup = L.popup()
@@ -76,6 +115,8 @@
                         .then((response) => response.text())
                         .then((data) => {
                             console.log("Success:", data);
+                            // Add the note to the sidebar after successful submission
+                            addNoteToSidebar(note, e.latlng.lat, e.latlng.lng);
                         })
                         .catch((error) => {
                             console.error("Error:", error);
@@ -88,41 +129,55 @@
 
             map.on("click", onMapClick);
 
-            // Fetch notes from Flask
-            fetch('/notes')
-                .then(response => response.json())
-                .then(notes => {
-                    // Loop through each note
-                    notes.forEach((note, index) => {
-                        // Create a unique ID for each note element
-                        var noteId = `note-${index}`;
+            // Function to add a note to the sidebar
+            function addNoteToSidebar(note, latitude, longitude) {
+                var noteElement = document.createElement("div");
+                noteElement.textContent = note;
+                noteElement.setAttribute("data-latitude", latitude);
+                noteElement.setAttribute("data-longitude", longitude);
+                noteElement.classList.add("note"); // Add the "note" class
+                noteElement.addEventListener("click", function () {
+                    // Find the corresponding marker reference from the array
+                    var latitude = parseFloat(
+                        this.getAttribute("data-latitude")
+                    );
+                    var longitude = parseFloat(
+                        this.getAttribute("data-longitude")
+                    );
+                    var index = markers.findIndex(function (marker) {
+                        return (
+                            marker.getLatLng().lat === latitude &&
+                            marker.getLatLng().lng === longitude
+                        );
+                    });
+                    if (index !== -1) {
+                        // Move the map to the note's coordinates and open the popup
+                        map.setView([latitude, longitude], 13);
+                        markers[index].openPopup();
+                    }
+                });
+                document.getElementById("sidebar").appendChild(noteElement);
 
-                        // Create a marker for each note
-                        var noteMarker = L.marker([note.latitude, note.longitude]).addTo(map);
-                        // Add the note text to the marker
-                        noteMarker.bindPopup(note.text);
+                // Add marker to the map if not already present
+                var markerIndex = markers.findIndex(function (marker) {
+                    return (
+                        marker.getLatLng().lat === parseFloat(latitude) &&
+                        marker.getLatLng().lng === parseFloat(longitude)
+                    );
+                });
+                if (markerIndex === -1) {
+                    addMarkerToMap(parseFloat(latitude), parseFloat(longitude));
+                }
+            }
 
-                        // Create the note element with the ID
-                        var noteElement = document.createElement('div');
-                        noteElement.id = noteId;
-                        noteElement.textContent = note.text;
-                        noteElement.style.cursor = 'pointer';
-
-                        // Update click event listener to reference marker based on ID
-                        noteElement.addEventListener('click', function() {
-                            // Find the marker with the corresponding ID (replace 'note-' with your prefix)
-                            var marker = map.findLayer(layer => layer.options.id === `note-${index}`);
-                            if (marker) {
-                                // Move the map to the note's coordinates and open the popup
-                                map.setView([note.latitude, note.longitude], 13);
-                                marker.openPopup();
-                            }
-                        });
-
-                        document.getElementById('sidebar').appendChild(noteElement);
+            // Fetch notes from Flask and add them to the sidebar
+            fetch("/notes")
+                .then((response) => response.json())
+                .then((notes) => {
+                    notes.forEach((note) => {
+                        addNoteToSidebar(note[2], note[0], note[1]);
                     });
                 });
-
         </script>
     </body>
 </html>

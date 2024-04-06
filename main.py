@@ -1,6 +1,5 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import sqlite3
-import json
 
 app = Flask(__name__)
 
@@ -17,12 +16,7 @@ conn.commit()
 
 @app.route('/')
 def home():
-    conn = sqlite3.connect('notes.db')
-    c = conn.cursor()
-    c.execute('SELECT * FROM notes')
-    notes = c.fetchall()
-    conn.close()
-    return render_template('index.html', notes=notes)
+    return render_template('index.html')
 
 @app.route('/submit_note', methods=['POST'])
 def submit_note():
@@ -48,7 +42,7 @@ def get_notes():
     c.execute('SELECT * FROM notes')
     notes = c.fetchall()
     conn.close()
-    return json.dumps(notes), 200
+    return jsonify(notes)
 
 if __name__ == '__main__':
     app.run(port=8000, debug=True)
